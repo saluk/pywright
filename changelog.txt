@@ -68,6 +68,7 @@
     - music_fade_in nowait, music_fade_out nowait available, if you want to fade the music 
         while doing other things
     - fix bug where fg objects with wait would execute the next line of code before pausing
+    - the _num_screens variable will be set to 1 if there is only 1 screen, and 2 if there are 2
     
     Engine/Updater
     - What used to be called "display.ini" is now called "settings.ini" because it stores
@@ -111,7 +112,7 @@
         the macros you can control how it works too, such as where it is positioned
         on the screen.
     - More built-in options for second screen interface:
-        'theme_bigbutton {theme}' is a macro to set how the big button on the second screen looks
+        'theme_screen2 {theme}' is a macro to set how the interface on the second screen looks
         replace {theme} with one of:
             phoenix - from pheonix wright, or GS1-3
             mia - mia shadow from phoenix wright series
@@ -120,9 +121,11 @@
             gk - for pink button from Ace Attorney Investigations/GK
         You can also configure scanlines, the button images, and the background with
         more precision by setting _bigbutton_bg, _bigbutton_img, _bigbutton_cross to the
-        respective image path for those elements, and setting _bigbutton_scanlines on or off.
-        Default is to use the old button with scanlines off, since the old button has scanlines
-        in the image already.
+        respective image path for those elements, and setting _screen2_scanlines on or off.
+        Default is to use the old button and backgroundwith scanlines off, since those images
+        have scanlines in the image already.
+        You can turn the 2nd screen letterbox (white lines on top and bottom) on and off
+        with _screen2_letterbox (this one defaults to "on")
         macro found in core/macros/gui.mcro/theme_bigbutton
         Check examples/bigbutton_changes for example
 

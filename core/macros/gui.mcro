@@ -27,25 +27,19 @@ macro enable_court_record_button
 set _cr_button true
 endmacro
 
-macro theme_bigbutton
+macro theme_screen2
     set theme $1
     print The theme is $theme
-    set _bigbutton_scanlines on
-    set _bigbutton_border on
-    set _bigbutton_border_img general/bigbutton/border
-    is theme = default default
-    is theme = phoenix phoenix
-    is theme = apollo apollo
-    is theme = mia mia
-    is theme = edgeworth edgeworth
-    is theme = gk gk
-    is theme = empty empty
+    set _screen2_scanlines on
+    set _screen2_letterbox on
+    set _screen2_letterbox_img general/bigbutton/border
+    goto $theme
     "ERROR, NO BIGBUTTON THEME {$theme}"
     label default
         set _bigbutton_bg bg/main
         set _bigbutton_img general/buttonpress
         set _bigbutton_cross general/cross_exam_buttons
-        set _bigbutton_scanlines off
+        set _screen2_scanlines off
         exit
     label phoenix
         print label phoenix
