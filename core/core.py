@@ -1,19 +1,21 @@
+from soft3d import context
+from pwvlib import *
+import simplejson as json
+import zipfile
+import registry
+import textutil
+import re
+import pickle
+import random
+import pygame
+import os
+import gui
+import time
 from errors import *
 import sys
 sys.path.append("core/include")
 sys.path.append("include")
-import time
-import gui
-import os
-import pygame
 pygame.font.init()
-import random
-import pickle
-import re
-import textutil
-import registry
-import zipfile
-import simplejson as json
 ImgFont = textutil.ImgFont
 try:
     import pygame.movie as pymovie
@@ -32,8 +34,7 @@ if android:
     import android.mixer as mixer
 else:
     import pygame.mixer as mixer
-    
-from pwvlib import *
+
 
 d = get_data_from_folder(".")
 __version__ = cver_s(d["version"])
@@ -46,46 +47,57 @@ try:
 except:
     numpy = None
     pygame.use_numpy = False
-standard_sw,standard_sh = 256,192
+standard_sw, standard_sh = 256, 192
 spd = 6
 
-ext_map = {"image":["png","jpg"],
-"script":["txt"],
-"music":["wav","mid","mod","ogg","s3m","it","xm"],
-"sound":["wav","ogg"],
-"movie":["mpeg","mpg"]}
-def ext_for(types=["image","script","music","sound"]):
+ext_map = {"image": ["png", "jpg"],
+"script": ["txt"],
+"music": ["wav", "mid", "mod", "ogg", "s3m", "it", "xm"],
+"sound": ["wav", "ogg"],
+"movie": ["mpeg", "mpg"]}
+
+
+def ext_for(types=["image", "script", "music", "sound"]):
     for et in types:
         for e in ext_map[et]:
             yield "."+e
-def noext(p,types=["image","script","music","sound"]):
+
+
+def noext(p, types=["image", "script", "music", "sound"]):
     """Path without the extension, if extension is in known types"""
     for ext in ext_for(types):
         if p.endswith(ext):
-            return p.rsplit(".",1)[0]
+            return p.rsplit(".", 1)[0]
     return p
-def onlyext(p,types=["image","script","music","sound"]):
+
+
+def onlyext(p, types=["image", "script", "music", "sound"]):
     """Returns the extension of the path"""
     for ext in ext_for(types):
         if p.endswith(ext):
             return ext
     return ""
-assert noext("something.png",["image"])=="something"
-assert noext("something.png",["music"])=="something.png"
-assert onlyext("something.png")==".png"
+
+
+assert noext("something.png", ["image"]) == "something"
+assert noext("something.png", ["music"]) == "something.png"
+assert onlyext("something.png") == ".png"
+
 
 def to_triplets(li):
     new = []
     now = []
     for x in li:
         now.append(x)
-        if len(now)==3:
+        if len(now) == 3:
             new.append(now)
             now = []
     return new
 
+
 def other_screen(y):
     return y+(assets.num_screens-1)*assets.sh
+
 
 class meta:
     def __init__(self):
@@ -95,7 +107,7 @@ class meta:
         self.loops = False
         self.sounds = {}
         self.split = None
-        self.framecompress = [0,0]
+        self.framecompress = [0, 0]
         self.blinkmode = "blinknoset"
         self.offsetx = 0
         self.offsety = 0
@@ -103,12 +115,13 @@ class meta:
         self.frameoffset = {}
         self.delays = {}
         self.speed = 6
-        self.blinkspeed = [100,200]
-    def load_from(self,f):
+        self.blinkspeed = [100, 200]
+
+    def load_from(self, f):
         text = f.read()
-        text = text.decode("utf8","ignore")
-        text = text.replace(u'\ufeff',u'')
-        lines = text.replace("\r\n","\n").split("\n")
+        text = text.decode("utf8", "ignore")
+        text = text.replace(u'\ufeff', u'')
+        lines = text.replace("\r\n", "\n").split("\n")
         setlength = False
         for l in lines:
             spl = l.split(" ")
@@ -123,37 +136,40 @@ class meta:
             if l.startswith("offsetx "): self.offsetx = int(spl[1])
             if l.startswith("offsety "): self.offsety = int(spl[1])
             if l.startswith("framecompress "):
-                fc = l.replace("framecompress ","").split(",")
-                if len(fc)==1:
-                    self.framecompress = [0,int(fc[0])]
+                fc = l.replace("framecompress ", "").split(",")
+                if len(fc) == 1:
+                    self.framecompress = [0, int(fc[0])]
                 else:
                     self.framecompress = [int(x) for x in fc]
             if l.startswith("blinksplit "):
-                self.split = int(l.replace("blinksplit ",""))
+                self.split = int(l.replace("blinksplit ", ""))
             if l.startswith("blinkmode "):
-                self.blinkmode = l.replace("blinkmode ","")
+                self.blinkmode = l.replace("blinkmode ", "")
             if l.startswith("blipsound "):
-                self.blipsound = l.replace("blipsound ","").strip()
+                self.blipsound = l.replace("blipsound ", "").strip()
             if l.startswith("framedelay "):
-                frame,delay = l.split(" ")[1:]
+                frame, delay = l.split(" ")[1:]
                 self.delays[int(frame)] = int(delay)
             if l.startswith("globaldelay "):
-                self.speed = float(l.split(" ",1)[1])
+                self.speed = float(l.split(" ", 1)[1])
             if l.startswith("blinkspeed "):
                 self.blinkspeed = [int(x) for x in l.split(" ")[1:]]
         f.close()
         if not setlength:
-            if self.vertical==1:
+            if self.vertical == 1:
                 self.length = self.horizontal
             else:
                 self.length = self.horizontal*self.vertical
         return self
-        
+
+
 class layer(dict):
-    def index(self,ob):
+    def index(self, ob):
         for i in self.keys():
             if ob in self[i]:
                 return i
+
+
 zlayers = layer()
 zi = 0
 ulayers = layer()
@@ -161,10 +177,10 @@ ui = 0
 sort = open("core/sorting.txt")
 sortmode = None
 for line in sort.readlines():
-    line = line.strip().split("#")[0].replace("\t"," ")
-    if line=="[z]":
+    line = line.strip().split("#")[0].replace("\t", " ")
+    if line == "[z]":
         sortmode = "z"
-    elif line=="[pri]":
+    elif line == "[pri]":
         sortmode = "pri"
     elif line:
         x = line.split(" ")
@@ -172,58 +188,65 @@ for line in sort.readlines():
         del x[0]
         while not x[0]: del x[0]
         if sortmode == "z":
-            zlayers[zi]=x
+            zlayers[zi] = x
             zi += 1
         elif sortmode == "pri":
-            ulayers[level]=x
-        
+            ulayers[level] = x
+
+
 class Variables(dict):
-    def __getitem__(self,key):
-        return self.get(key,"")
-    def get(self,key,*args):
+    def __getitem__(self, key):
+        return self.get(key, "")
+
+    def get(self, key, *args):
         if key.startswith("_layer_"):
             layer = zlayers.index(key[7:])
             if layer is not None:
                 return str(layer)
-        if key=="_version":
+        if key == "_version":
             return __version__
-        if key=="_num_screens":
+        if key == "_num_screens":
             return str(assets.num_screens)
-        if key=="_debug":
-            return {True:"on",False:"off"}[assets.debug_mode]
-        if key=="_buildmode":
+        if key == "_debug":
+            return {True: "on", False: "off"}[assets.debug_mode]
+        if key == "_buildmode":
             return str(assets.cur_script.buildmode)
-        return dict.get(self,key,*args)
-    def __setitem__(self,key,value,*args):
-        if key=="_speaking":
-            dict.__setitem__(self,key,value,*args)
+        return dict.get(self, key, *args)
+
+    def __setitem__(self, key, value, *args):
+        if key == "_speaking":
+            dict.__setitem__(self, key, value, *args)
             try:
                 self["_speaking_name"] = assets.gportrait().nametag.split("\n")
             except:
                 pass
-        if key=="_music_fade":
-            dict.__setitem__(self,key,value,*args)
+        if key == "_music_fade":
+            dict.__setitem__(self, key, value, *args)
             assets.smus(assets.gmus())
             return
-        if key=="_debug":
+        if key == "_debug":
             return
-        if key=="_sw":
+        if key == "_sw":
             print "SETTING SW"
             assets.sw = int(value)
             assets.make_screen()
             return
-        if key=="_sh":
+        if key == "_sh":
             assets.sh = int(value)
             assets.make_screen()
             return
-        return dict.__setitem__(self,key,value,*args)
-    def set(self,key,value):
-        return self.__setitem__(key,value)
+        return dict.__setitem__(self, key, value, *args)
 
-assert Variables().get("_version",None)
-        
+    def set(self, key, value):
+        return self.__setitem__(key, value)
+
+
+assert Variables().get("_version", None)
+
+
 class ImgFrames(list):
     pass
+
 
 class Assets(object):
     lists = {}
@@ -252,67 +275,77 @@ class Assets(object):
     tool_path = ""
     debug_mode = False
     game_speed = 1
-    debugging = "SEARCH"  #debugging mode. SEARCH for stop, STEP each line, or blank
+    debugging = "SEARCH"  # debugging mode. SEARCH for stop, STEP each line, or blank
     registry = registry.Registry(".")
+
     def init(self):
         self.registry = registry.Registry(".")
+
     def get_stack(self):
         stack = []
         for s in self.stack:
-            def gp(s,i):
+            def gp(s, i):
                 si = s.si+i
-                if si<0:
+                if si < 0:
                     return "PRE"
-                if si>=len(s.scriptlines):
+                if si >= len(s.scriptlines):
                     return "END"
                 if not s.scriptlines:
                     return "NOSCRIPT"
                 return s.scriptlines[si]
-            p0 = gp(s,-1)
-            p1 = gp(s,0)
-            p2 = gp(s,1)
-            stack.append([p0,p1,p2])
+            p0 = gp(s, -1)
+            p1 = gp(s, 0)
+            p2 = gp(s, 1)
+            stack.append([p0, p1, p2])
         return stack
-    def smus(self,v):
+
+    def smus(self, v):
         self._music_vol = v
         try:
-            mixer.music.set_volume(v/100.0*(int(assets.variables.get("_music_fade","100"))/100.0))
+            mixer.music.set_volume(
+                v/100.0*(int(assets.variables.get("_music_fade", "100"))/100.0))
         except:
             pass
+
     def gmus(self):
         return self._music_vol
-    music_volume = property(gmus,smus)
-    def set_mute_sound(self,value):
+    music_volume = property(gmus, smus)
+
+    def set_mute_sound(self, value):
         self.mute_sound = value
         if android and self.mute_sound:
             self.stop_music()
+
     def _appendgba(self):
         if not self.gbamode: return ""
         return "_gba"
     appendgba = property(_appendgba)
-    def raw_lines(self,name,ext=".txt",start="game",use_unicode=False):
-        if start=="game":
+
+    def raw_lines(self, name, ext=".txt", start="game", use_unicode=False):
+        if start == "game":
             start = self.game
         if start:
             start = start+"/"
         if name.endswith(".txt"):
             ext = ""
         try:
-            file = open(start+name+ext,"rU")
+            file = open(start+name+ext, "rU")
         except IOError:
-            raise file_error("File named "+start+name+ext+" could not be read. Make sure you spelled it properly and check case.")
+            raise file_error("File named "+start+name+ext +
+                             " could not be read. Make sure you spelled it properly and check case.")
         text = file.read()
         if use_unicode:
-            text = text.decode("utf8","ignore")
-            #Replace the BOM
-            text = text.replace(u'\ufeff',u'')
+            text = text.decode("utf8", "ignore")
+            # Replace the BOM
+            text = text.replace(u'\ufeff', u'')
         return text.split("\n")
-    def parse_macros(self,lines):
+
+    def parse_macros(self, lines):
         """Alters lines to not include macro definitions, and returns macros"""
         macros = {}
         mode = "normal"
         i = 0
-        while i<len(lines):
+        while i < len(lines):
             line = lines[i]
             if line.startswith("macro "):
                 del lines[i]
@@ -323,82 +356,87 @@ class Assets(object):
             elif mode == "macro":
                 del lines[i]
                 i -= 1
-                if line=="endmacro":
+                if line == "endmacro":
                     mode = "normal"
                     macros[macroname] = macrolines
                 else:
                     macrolines.append(line)
-            i+=1
+            i += 1
         return macros
-    def replace_macros(self,lines,macros):
+
+    def replace_macros(self, lines, macros):
         """Applies macros to lines"""
         i = 0
-        while i<len(lines):
+        while i < len(lines):
             line = lines[i]
             if line.startswith("{"):
                 del lines[i]
                 i -= 1
                 args = line[1:-1].split(" ")
-                if macros.get(args[0],None):
+                if macros.get(args[0], None):
                     newlines = "\n".join(macros[args[0]])
                     args = args[1:]
                     kwargs = {}
                     for a in args[:]:
-                        if a.count("=")==1:
+                        if a.count("=") == 1:
                             args.remove(a)
-                            k,v = a.split("=",1)
+                            k, v = a.split("=", 1)
                             kwargs[k] = v
-                    newlines = newlines.replace("$0",str(i))
+                    newlines = newlines.replace("$0", str(i))
                     for i2 in range(len(args)):
-                        newlines = newlines.replace("$%s"%(i2+1),args[i2])
+                        newlines = newlines.replace("$%s" % (i2+1), args[i2])
                     for k in kwargs:
-                        newlines = newlines.replace("$%s"%k,kwargs[k])
+                        newlines = newlines.replace("$%s" % k, kwargs[k])
                     newlines = newlines.split("\n")
                     for l in reversed(newlines):
-                        lines.insert(i+1,l)
+                        lines.insert(i+1, l)
             i += 1
-    def open_script(self,name,macros=True,ext=".txt"):
-        lines = self.raw_lines(name,ext,use_unicode=True)
+
+    def open_script(self, name, macros=True, ext=".txt"):
+        lines = self.raw_lines(name, ext, use_unicode=True)
         reallines = []
         block_comment = False
         for line in lines:
             line = line.strip()
-            #~ if line.startswith("###"):
-                #~ if block_comment:
-                    #~ block_comment = False
-                #~ else:
-                    #~ block_comment = True
-                #~ continue
-            #~ if block_comment:
-                #~ continue
+            # ~ if line.startswith("###"):
+                # ~ if block_comment:
+                    # ~ block_comment = False
+                # ~ else:
+                    # ~ block_comment = True
+                # ~ continue
+            # ~ if block_comment:
+                # ~ continue
             if macros and line.startswith("include "):
-                reallines.extend(self.open_script(line[8:].strip(),False))
+                reallines.extend(self.open_script(line[8:].strip(), False))
             else:
                 reallines.append(line)
         lines = reallines
         the_macros = {}
         for f in os.listdir("core/macros"):
             if f.endswith(".mcro"):
-                mlines = self.raw_lines("core/macros/"+f,"","",True)
+                mlines = self.raw_lines("core/macros/"+f, "", "", True)
                 parse = self.parse_macros(mlines)
                 the_macros.update(parse)
-        self.game = self.game.replace("\\","/")
+        self.game = self.game.replace("\\", "/")
         case = self.game
-        game = self.game.rsplit("/",1)[0]
-        for pth in [game,case]:
+        game = self.game.rsplit("/", 1)[0]
+        for pth in [game, case]:
             if os.path.exists(pth+"/macros.txt"):
-                the_macros.update(self.parse_macros(self.raw_lines("macros.txt","",start=pth,use_unicode=True)))
+                the_macros.update(self.parse_macros(self.raw_lines(
+                    "macros.txt", "", start=pth, use_unicode=True)))
             for f in os.listdir(pth):
                 if f.endswith(".mcro"):
-                    the_macros.update(self.parse_macros(self.raw_lines(f,"",start=pth,use_unicode=True)))
+                    the_macros.update(self.parse_macros(
+                        self.raw_lines(f, "", start=pth, use_unicode=True)))
         if macros:
             the_macros.update(self.parse_macros(lines))
-            self.replace_macros(lines,the_macros)
+            self.replace_macros(lines, the_macros)
         self.macros = the_macros
         return lines
-    def open_font(self,name,size):
-        pth = self.search_locations("fonts",name)
-        return pygame.font.Font(pth,size)
+
+    def open_font(self, name, size):
+        pth = self.search_locations("fonts", name)
+        return pygame.font.Font(pth, size)
     fonts = {}
     deffonts = {}
     for line in """set _font_tb pwinternational.ttf
@@ -425,35 +463,39 @@ set _font_new_resume arial.ttf
 set _font_new_resume_size 14""".split("\n"):
         args = line.split(" ")
         deffonts[args[1]] = args[2]
-    def get_font(self,name):
+
+    def get_font(self, name):
         defs = {}
         defs.update(self.deffonts)
         defs.update(self.variables)
-        fn = defs.get("_font_%s"%name,"pwinternational.ttf")
-        size = defs.get("_font_%s_size"%name,"10")
+        fn = defs.get("_font_%s" % name, "pwinternational.ttf")
+        size = defs.get("_font_%s_size" % name, "10")
         full = fn+"."+size
         if full in self.fonts:
             return self.fonts[full]
-        font = self.open_font(fn,int(size))
+        font = self.open_font(fn, int(size))
         self.fonts[full] = font
         return font
-    def get_image_font(self,name):
-        fn = self.variables.get("_font_%s"%name,"pwinternational.ttf")
-        size = self.variables.get("_font_%s_size"%name,"10")
+
+    def get_image_font(self, name):
+        fn = self.variables.get("_font_%s" % name, "pwinternational.ttf")
+        size = self.variables.get("_font_%s_size" % name, "10")
         full = fn+"."+size+".i"
         if full in self.fonts:
             return self.fonts[full]
         font = self.get_font(name)
-        imgfont = ImgFont("fonts/p.png",font)
+        imgfont = ImgFont("fonts/p.png", font)
         self.fonts[full] = imgfont
         return imgfont
-    def Surface(self,size,flags=0):
-        return pygame.Surface(size,flags)
-    def search_locations(self,search_path,name):
-        self.game = self.game.replace("\\","/")
+
+    def Surface(self, size, flags=0):
+        return pygame.Surface(size, flags)
+
+    def search_locations(self, search_path, name):
+        self.game = self.game.replace("\\", "/")
         case = self.game
-        game = self.game.rsplit("/",1)[0]
-        
+        game = self.game.rsplit("/", 1)[0]
+
         if os.path.exists(case+"/"+search_path+"/"+name):
             return case+"/"+search_path+"/"+name
 
@@ -462,7 +504,8 @@ set _font_new_resume_size 14""".split("\n"):
 
         if os.path.exists(search_path+"/"+name):
             return search_path+"/"+name
-    def _open_art_(self,name,key=None):
+
+    def _open_art_(self, name, key=None):
         """Returns list of frame images"""
         if self.cur_script and self.cur_script.imgcache.has_key(name):
             img = self.cur_script.imgcache[name]
@@ -471,12 +514,13 @@ set _font_new_resume_size 14""".split("\n"):
             return img
         self.meta = meta()
         pre = "art/"
-        textpath = self.registry.lookup(pre+name+".txt",True)
+        textpath = self.registry.lookup(pre+name+".txt", True)
         if not textpath:
-            textpath = self.registry.lookup(pre+name.rsplit(".",1)[0]+".txt",True)
-        print "lookup",pre+name
-        artpath = self.registry.lookup((pre+name).replace(".zip/","/"))
-        print pre+name+".txt",artpath,textpath
+            textpath = self.registry.lookup(
+                pre+name.rsplit(".", 1)[0]+".txt", True)
+        print "lookup", pre+name
+        artpath = self.registry.lookup((pre+name).replace(".zip/", "/"))
+        print pre+name+".txt", artpath, textpath
         if textpath:
             try:
                 f = self.registry.open(textpath)
@@ -486,8 +530,8 @@ set _font_new_resume_size 14""".split("\n"):
                 traceback.print_exc()
                 raise art_error("Art textfile corrupt:"+pre+name[:-4]+".txt")
         print self.registry.open(artpath)
-        texture = pygame.image.load(self.registry.open(artpath),artpath)
-        if texture.get_flags()&pygame.SRCALPHA:
+        texture = pygame.image.load(self.registry.open(artpath), artpath)
+        if texture.get_flags() & pygame.SRCALPHA:
             texture = texture.convert_alpha()
         else:
             texture = texture.convert()
@@ -496,24 +540,25 @@ set _font_new_resume_size 14""".split("\n"):
         img = []
         x = 0
         y = 0
-        width,height = texture.get_size()
+        width, height = texture.get_size()
         incx = width//self.meta.horizontal
         incy = height//self.meta.vertical
         for frame in range(self.meta.length):
-            img.append(texture.subsurface([[x,y],[incx,incy]]))
-            x+=incx
-            if x>=width:
-                x=0
-                y+=incy
+            img.append(texture.subsurface([[x, y], [incx, incy]]))
+            x += incx
+            if x >= width:
+                x = 0
+                y += incy
         img = ImgFrames(img)
         img._meta = self.meta
         img.real_path = self.real_path = artpath
         if self.cur_script:
             self.cur_script.imgcache[name] = img
         return img
-    def open_art(self,name,key=None):
+
+    def open_art(self, name, key=None):
         """Try to open an art file.  Name has no extension.
-        Will open gif, then png, then jpg.  Returns list of 
+        Will open gif, then png, then jpg.  Returns list of
         frame images"""
         self.real_path = None
         tries = [name]
@@ -521,15 +566,16 @@ set _font_new_resume_size 14""".split("\n"):
             tries.append(name+ext)
         for t in tries:
             try:
-                return self._open_art_(t,key)
-            except (IOError,ImportError,pygame.error,TypeError):
+                return self._open_art_(t, key)
+            except (IOError, ImportError, pygame.error, TypeError):
                 print "there was a typeerror"
                 pass
         import traceback
         traceback.print_exc()
         print "raising corrupt or missing art file"
         raise art_error("Art file corrupt or missing:"+name)
-    def init_sound(self,reset=False):
+
+    def init_sound(self, reset=False):
         self.sound_repeat_timer = {}
         self.min_sound_time = 0.01
         if android:
@@ -542,23 +588,25 @@ set _font_new_resume_size 14""".split("\n"):
             except:
                 pass
             try:
-                mixer.pre_init(self.sound_format, self.sound_sign*self.sound_bits, 2, self.sound_buffer)
+                mixer.pre_init(self.sound_format, self.sound_sign *
+                               self.sound_bits, 2, self.sound_buffer)
                 mixer.init()
                 self.sound_init = 1
                 self.music_volume = self._music_vol
                 return True
             except:
                 self.sound_init = -1
-        if self.sound_init==1: return True
+        if self.sound_init == 1: return True
         return False
-    def get_path(self,track,type,pre=""):
+
+    def get_path(self, track, type, pre=""):
         tries = [track]
-        #Unknown extension, make sure to check all extension types
-        if noext(track)==track:
+        # Unknown extension, make sure to check all extension types
+        if noext(track) == track:
             for ext in ext_for([type]):
-                tries.insert(0,track+ext)
-        #Get parent game folder, in case we are in a case folder
-        game = self.game.replace("\\","/").rsplit("/",1)[0]
+                tries.insert(0, track+ext)
+        # Get parent game folder, in case we are in a case folder
+        game = self.game.replace("\\", "/").rsplit("/", 1)[0]
         if pre: pre = "/"+pre+"/"
         else: pre = "/"
         for t in tries:
@@ -569,8 +617,9 @@ set _font_new_resume_size 14""".split("\n"):
             if os.path.exists(pre[1:]+t):
                 return pre[1:]+t
         return pre+track
-    def open_music(self,track,pre="music"):
-        p = self.get_path(track,"music",pre)
+
+    def open_music(self, track, pre="music"):
+        p = self.get_path(track, "music", pre)
         if not p:
             return False
         try:
@@ -580,10 +629,11 @@ set _font_new_resume_size 14""".split("\n"):
             import traceback
             traceback.print_exc()
             return False
-    def open_movie(self,movie):
+
+    def open_movie(self, movie):
         if not pymovie:
             raise script_error("No movie player component in this pywright")
-        movie = self.get_path(movie,"movie","movies")
+        movie = self.get_path(movie, "movie", "movies")
         try:
             mov = pymovie.Movie(movie)
             return mov
@@ -591,17 +641,19 @@ set _font_new_resume_size 14""".split("\n"):
             import traceback
             traceback.print_exc()
             raise art_error("Movie is missing or corrupt:"+movie)
+
     def list_casedir(self):
         return os.listdir(self.game)
-    def play_sound(self,name,wait=False,volume=1.0,offset=0,frequency=1,layer=0):
-        #self.init_sound()
+
+    def play_sound(self, name, wait=False, volume=1.0, offset=0, frequency=1, layer=0):
+        # self.init_sound()
         if self.sound_init == -1 or not self.sound_volume or self.mute_sound: return
         if name in self.sound_repeat_timer:
-            if time.time()-self.sound_repeat_timer[name]<self.min_sound_time:
+            if time.time()-self.sound_repeat_timer[name] < self.min_sound_time:
                 return
         self.sound_repeat_timer[name] = time.time()
-        path = self.get_path(name,"sound","sfx")
-        if self.snds.get(path,None):
+        path = self.get_path(name, "sound", "sfx")
+        if self.snds.get(path, None):
             snd = self.snds[path]
         else:
             try:
@@ -622,16 +674,17 @@ set _font_new_resume_size 14""".split("\n"):
             snd.volume = (self.sound_volume/100.0)*volume
         channel = snd.play()
         return channel
-    def play_music(self,track=None,loop=0,pre="music",reset_track=True):
-        print self.music_volume,self.variables.get("_music_fade",None)
+
+    def play_music(self, track=None, loop=0, pre="music", reset_track=True):
+        print self.music_volume, self.variables.get("_music_fade", None)
         if reset_track:
             assets.variables["_music_loop"] = track
         self.init_sound()
         if self.sound_init == -1 or self.mute_sound: return
-        self._track=track
-        self._loop=loop
+        self._track = track
+        self._loop = loop
         if track:
-            track = self.open_music(track,pre)
+            track = self.open_music(track, pre)
         if track:
             try:
                 mixer.music.play()
@@ -640,6 +693,7 @@ set _font_new_resume_size 14""".split("\n"):
                 traceback.print_exc()
         else:
             self.stop_music()
+
     def stop_music(self):
         if self.sound_init == -1: return
         self._track = None
@@ -648,28 +702,33 @@ set _font_new_resume_size 14""".split("\n"):
             mixer.music.stop()
         except:
             pass
+
     def music_update(self):
         mcb = mixer.music.get_busy
         if android:
             mcb = mixer.music_channel.get_busy
-        if getattr(self,"_track",None) and not mcb():
-            if assets.variables.get("_music_loop",None):
-                self.play_music(assets.variables["_music_loop"],self._loop)
+        if getattr(self, "_track", None) and not mcb():
+            if assets.variables.get("_music_loop", None):
+                self.play_music(assets.variables["_music_loop"], self._loop)
+
     def pause_sound(self):
         mixer.pause()
         mixer.music.pause()
+
     def resume_sound(self):
         mixer.unpause()
         mixer.music.unpause()
-    def set_emotion(self,e):
+
+    def set_emotion(self, e):
         """Sets the emotion of the current portrait"""
         if not self.portrait:
             self.add_portrait(self.character+"/"+e+"(blink)")
         if self.portrait:
             self.portrait.set_emotion(e)
-    flash = 0  #Tells main to add a flash object
-    flashcolor = [255,255,255]
-    shakeargs = 0  #Tell main to add a shake object
+    flash = 0  # Tells main to add a flash object
+    flashcolor = [255, 255, 255]
+    shakeargs = 0  # Tell main to add a shake object
+
     def get_stack_top(self):
         try:
             return self.stack[-1]
@@ -679,29 +738,32 @@ set _font_new_resume_size 14""".split("\n"):
     px = 0
     py = 0
     pz = None
+
     def gportrait(self):
-        id_name = self.variables.get("_speaking","")
-        if isinstance(id_name,portrait) or not id_name:
+        id_name = self.variables.get("_speaking", "")
+        if isinstance(id_name, portrait) or not id_name:
             return id_name
         ports = []
         for p in self.cur_script.obs:
-            if isinstance(p,portrait) and not getattr(p,"kill",0):
+            if isinstance(p, portrait) and not getattr(p, "kill", 0):
                 ports.append(p)
-                if getattr(p,"id_name",None)==id_name: return p
+                if getattr(p, "id_name", None) == id_name: return p
         for p in self.cur_script.obs:
-            if isinstance(p,portrait) and not getattr(p,"kill",0):
+            if isinstance(p, portrait) and not getattr(p, "kill", 0):
                 ports.append(p)
-                if getattr(p,"charname",None)==id_name: return p
+                if getattr(p, "charname", None) == id_name: return p
         if ports: return ports[0]
         return None
     portrait = property(gportrait)
-    def add_portrait(self,name,fade=False,stack=False,hide=False):
+
+    def add_portrait(self, name, fade=False, stack=False, hide=False):
         if hide: stack = True
         assets = self
         self = self.cur_script
-        if not stack: [(lambda o:setattr(o,"kill",1))(o) for o in self.obs if isinstance(o,portrait)]
+        if not stack: [(lambda o:setattr(o, "kill", 1))(o)
+                        for o in self.obs if isinstance(o, portrait)]
         assets.variables["_speaking"] = None
-        p = portrait(name,hide)
+        p = portrait(name, hide)
         p.pos[0] += assets.px
         p.pos[1] += assets.py
         if fade:
@@ -713,8 +775,9 @@ set _font_new_resume_size 14""".split("\n"):
         assets.variables["_speaking"] = p.id_name
         if stack: p.was_stacked = True
         return p
+
     def clear(self):
-        if not hasattr(self,"variables"):
+        if not hasattr(self, "variables"):
             self.variables = Variables()
         self.variables.clear()
         while assets.items:
@@ -722,54 +785,59 @@ set _font_new_resume_size 14""".split("\n"):
         assets.stop_music()
         assets.lists = {}
         self.fonts = {}
+
     def save(self):
         self.last_autosave = time.time()
         props = {}
-        for reg in ["character","_track","_loop","lists"]:
-            if hasattr(self,reg):
-                props[reg] = getattr(self,reg)
-        #save items
+        for reg in ["character", "_track", "_loop", "lists"]:
+            if hasattr(self, reg):
+                props[reg] = getattr(self, reg)
+        # save items
         items = []
         for x in self.items:
-            items.append({"id":x.id,"page":x.page})
+            items.append({"id": x.id, "page": x.page})
         props["items"] = items
-        #save variables
+        # save variables
         vars = {}
         for x in self.variables:
             v = self.variables[x]
-            if x == "_speaking" and hasattr(v,"id_name"):
+            if x == "_speaking" and hasattr(v, "id_name"):
                 vars[x] = v.id_name
             else:
                 vars[x] = v
         props["variables"] = vars
-        return ["Assets",[],props,None]
+        return ["Assets", [], props, None]
+
     def after_load(self):
-        self.registry = registry.combine_registries("./"+self.game,self.show_load)
+        self.registry = registry.combine_registries(
+            "./"+self.game, self.show_load)
         self.last_autosave = time.time()
         itemobs = []
         for x in self.items:
-            if isinstance(x,dict):
-                itemobs.append(evidence(x["id"],page=x["page"]))
+            if isinstance(x, dict):
+                itemobs.append(evidence(x["id"], page=x["page"]))
             else:
                 itemobs.append(evidence(x))
         self.items = itemobs
         v = self.variables
         self.variables = Variables()
         self.variables.update(v)
-        if getattr(self,"_track",None):
-            self.play_music(self._track,self._loop,reset_track=False)
+        if getattr(self, "_track", None):
+            self.play_music(self._track, self._loop, reset_track=False)
+
     def show_load(self):
         self.make_screen()
-        txt = "LOADING " + random.choice(["/","\\","-","|"])
-        txt = assets.get_font("loading").render(txt,1,[200,100,100])
-        pygame.screen.blit(txt,[50,50])
+        txt = "LOADING " + random.choice(["/", "\\", "-", "|"])
+        txt = assets.get_font("loading").render(txt, 1, [200, 100, 100])
+        pygame.screen.blit(txt, [50, 50])
         self.draw_screen(0)
         time.sleep(0.05)
-    def load_game_new(self,path=None,filename="save",hide=False):
-        if not vtrue(self.variables.get("_allow_saveload","true")):
+
+    def load_game_new(self, path=None, filename="save", hide=False):
+        if not vtrue(self.variables.get("_allow_saveload", "true")):
             return
         if "\\" in filename or "/" in filename:
-            raise script_error("Invalid save file path:'%s'"%(filename,))
+            raise script_error("Invalid save file path:'%s'" % (filename,))
         if not hide:
             self.show_load()
         if path:
@@ -777,37 +845,42 @@ set _font_new_resume_size 14""".split("\n"):
         try:
             f = open(self.game+"/"+filename+".ns")
         except:
-            self.cur_script.obs.append(saved(text="No game to load.",ticks=240))
+            self.cur_script.obs.append(
+                saved(text="No game to load.", ticks=240))
             return
         save_text = f.read()
         f.close()
         self.load_game_from_string(save_text)
-    def convert_save_string_to_ob(self,text):
+
+    def convert_save_string_to_ob(self, text):
         def read_oldsave(s):
             return eval(s)
+
         def read_newsave(s):
             return json.loads(s)
+
         def read_save(s):
             try:
                 return read_newsave(s)
             except:
                 return read_oldsave(s)
         return read_save(text)
-    def load_game_from_string(self,save_text):
+
+    def load_game_from_string(self, save_text):
         self.loading_cache = {}
         things = self.convert_save_string_to_ob(save_text)
         assets.clear()
         stack = {}
         loaded = []
-        for cls,args,props,dest in things:
+        for cls, args, props, dest in things:
             if cls == "Assets":
                 ob = self
             else:
                 ob = eval(cls)(*args)
             for k in props:
-                setattr(ob,k,props[k])
+                setattr(ob, k, props[k])
             if dest:
-                cont,index = dest
+                cont, index = dest
                 if cont == "stack":
                     stack[index] = ob
                 else:
@@ -819,20 +892,21 @@ set _font_new_resume_size 14""".split("\n"):
             assets.stack.append(stack[k])
         for ob in loaded:
             ob.after_load()
-        #Clear stack, keep only the last root script and its children
+        # Clear stack, keep only the last root script and its children
         d = 0
         for s in reversed(assets.stack):
             if d:
-                print "removing",s
+                print "removing", s
                 assets.stack.remove(s)
             else:
-                print "keeping",s
+                print "keeping", s
             if not s.parent:
                 d = 1
-        self.cur_script.obs.append(saved(text="Game restored",block=False))
+        self.cur_script.obs.append(saved(text="Game restored", block=False))
         self.cur_script.execute_macro("load_defaults")
         self.cur_script.execute_macro("init_court_record_settings")
-    def backup(self,path,save):
+
+    def backup(self, path, save):
         if not os.path.exists(path+"/"+save):
             return
         if not os.path.exists(path+"/save_backup"):
@@ -840,150 +914,169 @@ set _font_new_resume_size 14""".split("\n"):
         f = open(path+"/"+save)
         t = f.read()
         f.close()
-        f = open(path+"/save_backup/"+save+"_"+repr(os.path.getmtime(path+"/"+save)),"w")
+        f = open(path+"/save_backup/"+save+"_" +
+                 repr(os.path.getmtime(path+"/"+save)), "w")
         f.write(t)
         f.close()
-        if save!="autosave.ns":
+        if save != "autosave.ns":
             return
         autosaves = []
         for f in os.listdir(path+"/save_backup"):
             if f.startswith(save):
-                autosaves.append((f,float(f.split("_")[1])))
-        autosaves.sort(key=lambda s:s[1])
-        print len(autosaves)+1,self.autosave_keep
-        while len(autosaves)+1>self.autosave_keep:
-            p,t = autosaves.pop(0)
-            print "delete",p
+                autosaves.append((f, float(f.split("_")[1])))
+        autosaves.sort(key=lambda s: s[1])
+        print len(autosaves)+1, self.autosave_keep
+        while len(autosaves)+1 > self.autosave_keep:
+            p, t = autosaves.pop(0)
+            print "delete", p
             os.remove(path+"/save_backup/"+p)
-        print "autosaves",autosaves
-    def save_game(self,filename="save",hide=False):
-        if not vtrue(self.variables.get("_allow_saveload","true")) and not vtrue(self.variables.get("_debug","false")):
+        print "autosaves", autosaves
+
+    def save_game(self, filename="save", hide=False):
+        if not vtrue(self.variables.get("_allow_saveload", "true")) and not vtrue(self.variables.get("_debug", "false")):
             return
         if "\\" in filename or "/" in filename:
-            raise script_error("Invalid save file path:'%s'"%(filename,))
-        filename = filename.replace("/","_").replace("\\","_")+".ns"
-        #Collect *things* to save
+            raise script_error("Invalid save file path:'%s'" % (filename,))
+        filename = filename.replace("/", "_").replace("\\", "_")+".ns"
+        # Collect *things* to save
         stuff = [self.save()]
         for script in self.stack:
             if script.save_me:
                 stuff.append(script.save())
-        self.backup(self.game,filename)
-        f = open(self.game+"/"+filename,"w")
-        f.write(json.dumps(stuff,indent=4))
+        self.backup(self.game, filename)
+        f = open(self.game+"/"+filename, "w")
+        f.write(json.dumps(stuff, indent=4))
         f.close()
         if not hide:
             self.cur_script.obs.append(saved(block=False))
-    def load_game(self,path=None,filename="save",hide=False):
+
+    def load_game(self, path=None, filename="save", hide=False):
         self.cur_script.imgcache.clear()
-        chkpath=""
+        chkpath = ""
         if path is not None:
-            chkpath=path+"/"
+            chkpath = path+"/"
         if filename == "save":
             filename = self.check_autosave(chkpath)
-        self.load_game_new(path,filename,hide)
-    def check_autosave(self,path):
+        self.load_game_new(path, filename, hide)
+
+    def check_autosave(self, path):
         if not os.path.exists(path+"/autosave.ns"):
             return "save"
         if not os.path.exists(path+"/save.ns"):
             return "autosave"
         mt1 = os.path.getmtime(path+"/autosave.ns")
         mt2 = os.path.getmtime(path+"/save.ns")
-        if mt1>mt2:
+        if mt1 > mt2:
             return 'autosave'
         return "save"
-    def vdefault(self,var):
+
+    def vdefault(self, var):
         """Return default value for a variable"""
         if var == "_debug":
             return "off"
         return None
-    def v(self,var,default="_NOT GIVEN_"):
+
+    def v(self, var, default="_NOT GIVEN_"):
         """Return a variable value, or it's default value"""
         if default == "_NOT_GIVEN_":
             default = self.vdefault(var)
-        v = self.variables.get(var,default)
+        v = self.variables.get(var, default)
         return v
-    def vtrue(self,var,default="_NOT_GIVEN_"):
-        v = self.v(var,default)
+
+    def vtrue(self, var, default="_NOT_GIVEN_"):
+        v = self.v(var, default)
         return vtrue(v)
+
     def reset_state(self):
         self.variables.clear()
         self.stop_music()
         self.stack[:] = []
+
     def quit_game(self):
         self.reset_state()
         self.make_start_script(False)
+
     def reset_game(self):
         game = self.game
         self.reset_state()
         self.start_game(game)
-    def start_game(self,game,script=None,mode="casemenu"):
+
+    def start_game(self, game, script=None, mode="casemenu"):
         assets.show_load()
         gamename = game
         if "/" in game:
-            gamename = game.rsplit("/",1)[1]
-        print "starting game",game,gamename,script,mode
+            gamename = game.rsplit("/", 1)[1]
+        print "starting game", game, gamename, script, mode
         if not script:
-            print "not script",game+"/"+gamename+".txt"
+            print "not script", game+"/"+gamename+".txt"
             if os.path.exists(game+"/"+gamename+".txt"):
                 script = gamename
             else:
                 script = "intro"
-        print "starting game",game,script,mode
-        game = os.path.normpath(game).replace("\\","/")
+        print "starting game", game, script, mode
+        game = os.path.normpath(game).replace("\\", "/")
         self.last_autosave = time.time()
         self.clear()
         self.game = game
-        self.registry = registry.combine_registries("./"+self.game,self.show_load)
+        self.registry = registry.combine_registries(
+            "./"+self.game, self.show_load)
         self.stack.append(self.Script())
         if mode == "casemenu" and not os.path.exists(game+"/"+script+".txt"):
-            self.cur_script.obs = [bg("main"),bg("main"),case_menu(game)]
-            self.cur_script.obs[1].pos = [0,192]
+            self.cur_script.obs = [bg("main"), bg("main"), case_menu(game)]
+            self.cur_script.obs[1].pos = [0, 192]
             return
-        print "set game to",assets.game
+        print "set game to", assets.game
         self.cur_script.init(script)
         self.cur_script.execute_macro("init_defaults")
         self.cur_script.execute_macro("font_defaults")
         self.cur_script.execute_macro("load_defaults")
         self.cur_script.execute_macro("init_court_record_settings")
+
     def addevmenu(self):
         try:
             em = evidence_menu(self.items)
-            self.cur_script.add_object(em,True)
+            self.cur_script.add_object(em, True)
             em.update()
-        except art_error,e:
-            self.cur_script.obs.append(error_msg(e.value,"",0,self.cur_script))
+        except art_error, e:
+            self.cur_script.obs.append(
+                error_msg(e.value, "", 0, self.cur_script))
             import traceback
             traceback.print_exc()
             return
         return em
-    def addscene(self,scene):
-        #FIXME - assets.Script should be script.Script
+
+    def addscene(self, scene):
+        # FIXME - assets.Script should be script.Script
         s = self.Script()
         s.init(scene)
         self.stack.append(s)
-        
+
+
 def vtrue(variable):
-    if variable.lower() in ["on","1","true"]:
+    if variable.lower() in ["on", "1", "true"]:
         return True
     return False
-    
+
+
 assets = Assets()
 
 assets.subscripts = {}
+
+
 def subscript(macro):
     """Runs a macro all the way through"""
-    #FIXME - limit recursion for subscripts. kind of a hack
+    # FIXME - limit recursion for subscripts. kind of a hack
     if macro in assets.subscripts:
         return
     script = assets.cur_script.execute_macro(macro)
-    print "start subscript",macro,getattr(script,"scene","(no scene)")
+    print "start subscript", macro, getattr(script, "scene", "(no scene)")
     from engine.script import interpret_scripts
     interpret_scripts()
     return
     assets.subscripts[macro] = 1
     while script in assets.stack:
-        #~ print script.scriptlines,script.si
-        #~ print script.scriptlines[script.si]
+        # ~ print script.scriptlines,script.si
+        # ~ print script.scriptlines[script.si]
         oldb = script.buildmode
         e = script.update()
         newb = script.buildmode
@@ -991,121 +1084,143 @@ def subscript(macro):
             break
         if not oldb and not newb:
             break
-    print "end subscript",macro,getattr(script,"scene","(no scene)")
+    print "end subscript", macro, getattr(script, "scene", "(no scene)")
     del assets.subscripts[macro]
-    
+
 
 class SoundEvent(object):
     kill = 0
     pri = -1000000
-    def __init__(self,name,after=0,volume=1.0):
+
+    def __init__(self, name, after=0, volume=1.0):
         self.name = name
         self.wait = after
         self.volume = volume
         self.z = zlayers.index(self.__class__.__name__)
+
     def delete(self):
         self.kill = 1
+
     def update(self):
-        self.wait-=assets.dt
-        if self.wait<=0:
-            assets.play_sound(self.name,volume=self.volume)
+        self.wait -= assets.dt
+        if self.wait <= 0:
+            assets.play_sound(self.name, volume=self.volume)
             self.delete()
         return False
-    def draw(self,*args):
+
+    def draw(self, *args):
         pass
+
 
 def color_str(rgbstring):
     if rgbstring.startswith(" "):
         rgbstring = rgbstring[1:]
-    cv = assets.variables.get("color_"+rgbstring,None)
+    cv = assets.variables.get("color_"+rgbstring, None)
     if cv is not None:
         rgbstring = cv
-    if len(rgbstring)==3:
+    if len(rgbstring) == 3:
         return [int((int(colchar)/9.0)*255) for colchar in rgbstring]
-    elif len(rgbstring)==6:
-        v = [int(rgbstring[:2],16),int(rgbstring[2:4],16),int(rgbstring[4:6],16)]
+    elif len(rgbstring) == 6:
+        v = [int(rgbstring[:2], 16), int(
+            rgbstring[2:4], 16), int(rgbstring[4:6], 16)]
         return v
-        
+
+
 def trans_y(y):
     """Alter y value to place us in the proper screen"""
-    if assets.num_screens==1:
-        y-=192
+    if assets.num_screens == 1:
+        y -= 192
     return y
-        
+
+
 class ws_button(gui.button):
     """A button created from wrightscript"""
     screen_setting = ""
     id_name = "_ws_button_"
+
     def delete(self):
         print "deleting ws_button"
         self.kill = 1
+
     def getrpos(self):
         rpos = self.rpos[:]
         if self.screen_setting == "try_bottom":
             rpos[1] = trans_y(rpos[1])
         return rpos
-    def event(self,name,pos,*args):
+
+    def event(self, name, pos, *args):
         orpos = self.rpos[:]
         self.rpos = self.getrpos()
-        ret = super(ws_button,self).event(name,pos,*args)
+        ret = super(ws_button, self).event(name, pos, *args)
         self.rpos = orpos
         return ret
-    def draw(self,dest):
+
+    def draw(self, dest):
         orpos = self.rpos[:]
         self.rpos = self.getrpos()
-        super(ws_button,self).draw(dest)
+        super(ws_button, self).draw(dest)
         self.rpos = orpos
-        
+
+
 class ws_editbox(gui.editbox):
     """An editbox created from wrightscript"""
     screen_setting = ""
     id_name = "_ws_button_"
+
     def delete(self):
         print "deleting ws_button"
         self.kill = 1
+
     def getrpos(self):
         rpos = self.rpos[:]
         if self.screen_setting == "try_bottom":
             rpos[1] = trans_y(rpos[1])
         return rpos
-    def event(self,name,pos,*args):
+
+    def event(self, name, pos, *args):
         orpos = self.rpos[:]
         self.rpos = self.getrpos()
-        ret = super(ws_editbox,self).event(name,pos,*args)
+        ret = super(ws_editbox, self).event(name, pos, *args)
         self.rpos = orpos
         return ret
-    def draw(self,dest):
+
+    def draw(self, dest):
         orpos = self.rpos[:]
         self.rpos = self.getrpos()
-        super(ws_editbox,self).draw(dest)
+        super(ws_editbox, self).draw(dest)
         self.rpos = orpos
 
+
 class sprite(gui.button):
-    blinkspeed = [100,200]
+    blinkspeed = [100, 200]
     autoclear = False
     pri = 0
-    #widget stuff
+    # widget stuff
+
     def _g_rpos(self):
-        if not hasattr(self,"pos"): return [0,0]
+        if not hasattr(self, "pos"): return [0, 0]
         return self.getpos()
     rpos = property(_g_rpos)
-    width,height = [assets.sw,assets.sh]
+    width, height = [assets.sw, assets.sh]
     children = []
     spd = 6
+
     def getpos(self):
         pos = self.pos[:]
         if self.screen_setting == "try_bottom":
             pos[1] = trans_y(pos[1])
         return pos
-    def getprop(self,p):
+
+    def getprop(self, p):
         if p in "xy":
             return self.pos["xy".index(p)]
         if p == "frame":
             return self.x
 	if p == "screen_setting":
 	    return self.screen_setting
-        return getattr(self,p,"")
-    def setprop(self,p,v):
+        return getattr(self, p, "")
+
+    def setprop(self, p, v):
         if p in "xy":
             self.pos["xy".index(p)] = float(v)
         if p in "z":
@@ -1114,33 +1229,39 @@ class sprite(gui.button):
             self.x = int(v)
 	if p == "screen_setting":
 	    self.screen_setting = v
+
     def delete(self):
         self.kill = 1
+
     def makestr(self):
         """A wrightscript string to recreate the object"""
-        if not getattr(self,"name",None): return ""
+        if not getattr(self, "name", None): return ""
         xs = ""
         ys = ""
         zs = ""
         id = ""
         if self.pos[0]: xs = "x="+str(self.pos[0])+" "
         if self.pos[1]: ys = "y="+str(self.pos[1])+" "
-        #Make this better (maybe only allow layer name for z?)
-        if type(self.z)==type(""):
-            if zlayers.index(self.__class__.__name__)!=zlayers.index(self.z.remove("_layer_")):
+        # Make this better (maybe only allow layer name for z?)
+        if type(self.z) == type(""):
+            if zlayers.index(self.__class__.__name__) != zlayers.index(self.z.remove("_layer_")):
                 zs = "z="+self.z
         else:
             if self.z != zlayers.index(self.__class__.__name__):
                 zs = "z=_layer_"+zlayers[self.z][0]
-        if not getattr(self,"id_name","$$").startswith("$$"): id = "name="+self.id_name+" "
+        if not getattr(self, "id_name", "$$").startswith(
+            "$$"): id = "name="+self.id_name+" "
         try:
-            comm = {"bg":"bg","fg":"fg","evidence":"ev"}[self.__class__.__name__]
+            comm = {"bg": "bg", "fg": "fg", "evidence": "ev"}[
+                self.__class__.__name__]
         except KeyError:
             return ""
-        return (comm+" "+self.name.split("/",1)[1]+" "+xs+ys+zs+id).strip()
-    def click_down_over(self,mp):
+        return (comm+" "+self.name.split("/", 1)[1]+" "+xs+ys+zs+id).strip()
+
+    def click_down_over(self, mp):
         pass
-    def load_extra(self,m):
+
+    def load_extra(self, m):
         self.sounds = m.sounds
         self.loops = m.loops
         self.split = m.split
@@ -1151,25 +1272,28 @@ class sprite(gui.button):
         self.delays = m.delays
         self.spd = m.speed
         self.blinkspeed = m.blinkspeed
-        if assets.variables.get("_blinkspeed_next",""):
-            self.blinkspeed = [int(x) for x in assets.variables["_blinkspeed_next"].split(" ")]
+        if assets.variables.get("_blinkspeed_next", ""):
+            self.blinkspeed = [
+                int(x) for x in assets.variables["_blinkspeed_next"].split(" ")]
             assets.variables["_blinkspeed_next"] = ""
-        elif assets.variables.get("_blinkspeed_global","default")!="default":
-            self.blinkspeed = [int(x) for x in assets.variables["_blinkspeed_global"].split(" ")]
-    def load(self,name,key=[255,0,255]):
+        elif assets.variables.get("_blinkspeed_global", "default") != "default":
+            self.blinkspeed = [
+                int(x) for x in assets.variables["_blinkspeed_global"].split(" ")]
+
+    def load(self, name, key=[255, 0, 255]):
         self.key = key
-        if type(name)==type("") or type(name)==type(u""):
+        if type(name) == type("") or type(name) == type(u""):
             path = ""
-            self.base = assets.open_art(name,key)
+            self.base = assets.open_art(name, key)
             self.load_extra(assets.meta)
         else:
             self.base = name
             self.load_extra(meta())
         self.real_path = assets.real_path
         if self.base:
-            self.width,self.height = self.base[0].get_size()
+            self.width, self.height = self.base[0].get_size()
         else:
-            self.width,self.height = [0,0]
+            self.width, self.height = [0, 0]
             self.name = name
             self.x = 0
             self.next = self.spd
@@ -1177,123 +1301,130 @@ class sprite(gui.button):
         self.img = self.base[0]
         self.name = name
         self.x = 0
-        self.next = self.delays.get(0,self.spd)
+        self.next = self.delays.get(0, self.spd)
         return self
-    def __init__(self,x=0,y=0,flipx=0,**kwargs):
-        self.spd = int(assets.variables.get("_default_frame_delay",self.spd))
+
+    def __init__(self, x=0, y=0, flipx=0, **kwargs):
+        self.spd = int(assets.variables.get("_default_frame_delay", self.spd))
         self.loopmode = ""
         self.next = self.spd
-        self.pos = [x,y]
+        self.pos = [x, y]
         self.dim = 1
         self.z = zlayers.index(self.__class__.__name__)
-        self.rot = [0,0,0]
-        if kwargs.get("rotx",None): self.rot[0]=int(kwargs.get("rotx"))
-        if kwargs.get("roty",None): self.rot[1]=int(kwargs.get("roty"))
-        if kwargs.get("rotz",None): self.rot[2]=int(kwargs.get("rotz"))
+        self.rot = [0, 0, 0]
+        if kwargs.get("rotx", None): self.rot[0] = int(kwargs.get("rotx"))
+        if kwargs.get("roty", None): self.rot[1] = int(kwargs.get("roty"))
+        if kwargs.get("rotz", None): self.rot[2] = int(kwargs.get("rotz"))
         self.sounds = {}
         self.x = 0
         self.offsetx = 0
         self.offsety = 0
         self.loops = 0
         self.loopmode = 0
-        self.flipx=flipx
+        self.flipx = flipx
         self.blinkmode = "blinknoset"
-        if kwargs.get("screen",None)==2:
-            self.pos[1]=other_screen(self.pos[1])
-        self.screen_setting=""
+        if kwargs.get("screen", None) == 2:
+            self.pos[1] = other_screen(self.pos[1])
+        self.screen_setting = ""
         self.base = []
         self.delays = {}
         self.start = 0
         self.end = None
-    def draw(self,dest):
-        if not getattr(self,"img",None): return
+
+    def draw(self, dest):
+        if not getattr(self, "img", None): return
         img = self.img
         if self.flipx:
-            img = pygame.transform.flip(img,1,0)
+            img = pygame.transform.flip(img, 1, 0)
         pos = self.getpos()
-        if hasattr(self,"offsetx"): pos[0]+=self.offsetx
-        if hasattr(self,"offsety"): pos[1]+=self.offsety
-        if hasattr(self,"rot"):
-            if hasattr(img,"ori"):
+        if hasattr(self, "offsetx"): pos[0] += self.offsetx
+        if hasattr(self, "offsety"): pos[1] += self.offsety
+        if hasattr(self, "rot"):
+            if hasattr(img, "ori"):
                 img.ori = self.rot
             elif self.rot[2]:
-                pos[0]+=img.get_width()//2
-                pos[1]+=img.get_height()//2
-                img = pygame.transform.rotate(img,self.rot[2]).convert_alpha()
-                pos[0]-=img.get_width()//2
-                pos[1]-=img.get_height()//2
+                pos[0] += img.get_width()//2
+                pos[1] += img.get_height()//2
+                img = pygame.transform.rotate(img, self.rot[2]).convert_alpha()
+                pos[0] -= img.get_width()//2
+                pos[1] -= img.get_height()//2
         if self.dim != 1:
             os = img.get_size()
-            img = pygame.transform.rotozoom(img,0,self.dim)
+            img = pygame.transform.rotozoom(img, 0, self.dim)
             ns = img.get_size()
-            pos[0]+=os[0]//2-ns[0]//2
-            pos[1]+=os[1]//2-ns[1]//2
-        dest.blit(img,pos)
+            pos[0] += os[0]//2-ns[0]//2
+            pos[1] += os[1]//2-ns[1]//2
+        dest.blit(img, pos)
+
     def update(self):
-        if self.next>0:
-            self.next-=assets.dt
-        if self.next<=0:
-            if self.sounds.get(self.x,None):
+        if self.next > 0:
+            self.next -= assets.dt
+        if self.next <= 0:
+            if self.sounds.get(self.x, None):
                 assets.play_sound(self.sounds[self.x])
             self.x += 1
-            self.next += self.delays.get(self.x,self.spd)
+            self.next += self.delays.get(self.x, self.spd)
             end = len(self.base)
             if self.end is not None:
                 end = self.end
-            if self.x>=end:
-                if self.loops and (not self.loopmode or self.loopmode=="loop"):
+            if self.x >= end:
+                if self.loops and (not self.loopmode or self.loopmode == "loop"):
                     self.x = 0
-                    if self.loops>1:
+                    if self.loops > 1:
                         self.loops -= 1
                         if self.loops == 1:
                             self.loops = 0
-                elif self.loopmode in ["blink","blinknoset"]:
+                elif self.loopmode in ["blink", "blinknoset"]:
                     self.x = self.start
-                    self.next = random.randint(self.blinkspeed[0],self.blinkspeed[1])
+                    self.next = random.randint(
+                        self.blinkspeed[0], self.blinkspeed[1])
                 else:
                     self.next = -1
-                    self.x-=1
-                    #self.x = 0
+                    self.x -= 1
+                    # self.x = 0
         if self.loopmode == "stop":
             self.loops = 0
         if self.base:
-            if self.x<len(self.base):
+            if self.x < len(self.base):
                 self.img = self.base[self.x]
 
-from soft3d import context
 
 class surf3d(sprite):
-    def __init__(self,pos,sw,sh,rw,rh):
+    def __init__(self, pos, sw, sh, rw, rh):
         self.id_name = "surf3d"
         self.pos = pos
-        self.sw,self.sh=sw,sh
+        self.sw, self.sh = sw, sh
         self.z = 2
         self.pri = -1000
-        self.width,self.height = rw,rh
-        self.context = context.SoftContext(sw,sh,rw,rh)
+        self.width, self.height = rw, rh
+        self.context = context.SoftContext(sw, sh, rw, rh)
         self.surf = self.context.draw()
         self.next = 5
         self.screen_setting = ""
         self.primary = True
-    def click_down_over(self,pos):
-        print "click",pos
-        if pos[0]>=self.pos[0] and pos[0]<=self.pos[0]+self.width and pos[1]>=self.pos[1] and pos[1]<=self.pos[1]+self.height:
+
+    def click_down_over(self, pos):
+        print "click", pos
+        if pos[0] >= self.pos[0] and pos[0] <= self.pos[0]+self.width and pos[1] >= self.pos[1] and pos[1] <= self.pos[1]+self.height:
             for o in assets.cur_script.obs:
-                if isinstance(o,mesh):
+                if isinstance(o, mesh):
                     o.click(pos)
-    def draw(self,dest):
-        dest.blit(self.surf,self.getpos())
+
+    def draw(self, dest):
+        dest.blit(self.surf, self.getpos())
+
     def update(self):
         self.next -= assets.dt
-        if self.next>0:
+        if self.next > 0:
             return
         if [x for x in self.context.objects if x.changed]:
             self.surf = self.context.draw().convert()
-        [setattr(x,"changed",0) for x in self.context.objects]
+        [setattr(x, "changed", 0) for x in self.context.objects]
         self.next = 2
 
+
 class mesh(sprite):
-    def __init__(self,meshfile,pos=[0,0],rot=[0,0,0],name="surf3d"):
+    def __init__(self, meshfile, pos=[0, 0], rot=[0, 0, 0], name="surf3d"):
         self.pos = pos
         self.z = 0
         self.pri = 0
@@ -1302,106 +1433,120 @@ class mesh(sprite):
         self.fail = "none"
         self.examine = False
         self.dz = 0
-        self.rot = [0,0,0]
-        self.maxz=0
-        self.minz=-150
-        self.meshfile=meshfile
+        self.rot = [0, 0, 0]
+        self.maxz = 0
+        self.minz = -150
+        self.meshfile = meshfile
         self.surfname = name
         self.changed = 1
         self.screen_setting = ""
-    def load(self,script=None):
+
+    def load(self, script=None):
         if not script:
             script = assets.cur_script
         con = None
         for o in assets.cur_script.world.all:
-            if getattr(o,"id_name",None)==self.surfname:
+            if getattr(o, "id_name", None) == self.surfname:
                 con = o
                 break
         if not con:
             return
         self.con = con
         path = assets.game+"/art/models/"
-        self.ob = ob = con.context.load_object(self.meshfile,path)
+        self.ob = ob = con.context.load_object(self.meshfile, path)
         ob.trans(z=-100)
-        ob.rot(90,0,0)
+        ob.rot(90, 0, 0)
         ob.changed = 1
-    def trans(self,x=0,y=0,z=0):
-        if self.dz+z>self.maxz:
+
+    def trans(self, x=0, y=0, z=0):
+        if self.dz+z > self.maxz:
             z = self.maxz-self.dz
-        elif self.dz+z<self.minz:
+        elif self.dz+z < self.minz:
             z = self.minz-self.dz
-        self.dz+=z
-        self.ob.trans(x,y,z)
+        self.dz += z
+        self.ob.trans(x, y, z)
         self.ob.changed = 1
-    def click(self,pos):
+
+    def click(self, pos):
         if not self.examine:
             return
-        x,y = pos
-        x=int((x-self.con.pos[0])*(self.con.context.s_w/float(self.con.context.r_w)))
-        y=int((y-self.con.pos[1])*(self.con.context.s_h/float(self.con.context.r_h)))
+        x, y = pos
+        x = int((x-self.con.pos[0]) *
+                (self.con.context.s_w/float(self.con.context.r_w)))
+        y = int((y-self.con.pos[1]) *
+                (self.con.context.s_h/float(self.con.context.r_h)))
         i = y*self.con.context.s_w+x
-        if i>=len(pygame.depth) or i<0:
+        if i >= len(pygame.depth) or i < 0:
             return
         point = pygame.depth[i][1]
         if point:
-            u,v = point
+            u, v = point
             for rect in self.regions:
-                if u>=rect[0] and u<=rect[0]+rect[2] and v>=rect[1] and v<=rect[1]+rect[3]:
+                if u >= rect[0] and u <= rect[0]+rect[2] and v >= rect[1] and v <= rect[1]+rect[3]:
                     label = rect[4]
-                    self.goto(u,v,label)
+                    self.goto(u, v, label)
                     return
-            return self.goto(u,v,self.fail)
-    def goto(self,u,v,label):
+            return self.goto(u, v, self.fail)
+
+    def goto(self, u, v, label):
         self.examine = False
         assets.variables["_examine_clickx3d"] = str(u)
         assets.variables["_examine_clicky3d"] = str(v)
         self.regions[:] = []
-        assets.cur_script.goto_result(label,backup=self.fail)
-    def rotate(self,axis,amount):
-        r = [0,0,0]
+        assets.cur_script.goto_result(label, backup=self.fail)
+
+    def rotate(self, axis, amount):
+        r = [0, 0, 0]
         r[axis] = amount
         self.ob.rot(*r)
         self.ob.changed = 1
-    def draw(self,dest):
+
+    def draw(self, dest):
         pass
+
     def update(self):
         pass
-        
+
+
 class fadesprite(sprite):
-    real_path=None
+    real_path = None
     invert = 0
     tint = None
     greyscale = 0
-    def setfade(self,val=255):
-        if val<0: val = 0
-        if val>255: val = 255
-        if getattr(self,"fade",None) is None: self.fade = 255
+
+    def setfade(self, val=255):
+        if val < 0: val = 0
+        if val > 255: val = 255
+        if getattr(self, "fade", None) is None: self.fade = 255
         self.lastfade = self.fade
         self.fade = val
         return self
-    def draw(self,dest):
-        if getattr(self,"fade",None) is None: self.fade = 255
+
+    def draw(self, dest):
+        if getattr(self, "fade", None) is None: self.fade = 255
         if self.fade == 0:
             return
         if self.fade == 255 and not self.invert and not self.tint and not self.greyscale:
             return sprite.draw(self, dest)
-        if getattr(self,"img",None) and not getattr(self,"mockimg",None):
+        if getattr(self, "img", None) and not getattr(self, "mockimg", None):
             if pygame.use_numpy:
                 self.mockimg = self.img.convert_alpha()
                 self.mockimg_base = [x.convert_alpha() for x in self.base]
-                self.origa_base = [pygame.surfarray.array_alpha(x) for x in self.mockimg_base]
+                self.origa_base = [pygame.surfarray.array_alpha(
+                    x) for x in self.mockimg_base]
                 self.draw_func = self.numpydraw
             else:
                 self.draw_func = self.mockdraw
                 ximg = pygame.Surface(self.img.get_size())
-                ximg.fill([255,0,255])
-                ximg.blit(self.img,[0,0])
+                ximg.fill([255, 0, 255])
+                ximg.blit(self.img, [0, 0])
                 ximg = ximg.convert()
-                ximg.set_colorkey([255,0,255])
+                ximg.set_colorkey([255, 0, 255])
                 self.mockimg = ximg
-        if (getattr(self,"tint",None) or getattr(self,"invert",None)) and not getattr(self,"origc_base",None) and pygame.use_numpy:
-            self.origc_base = [pygame.surfarray.array3d(x) for x in self.mockimg_base]
-            print "set base foo",self.origc_base
+        if (getattr(self, "tint", None) or getattr(self, "invert", None)) and not getattr(self, "origc_base", None) and pygame.use_numpy:
+            self.origc_base = [pygame.surfarray.array3d(
+                x) for x in self.mockimg_base]
+            print "set base foo", self.origc_base
         try:
             self.draw_func(dest)
         except Exception:
@@ -1410,21 +1555,23 @@ class fadesprite(sprite):
                 self.mockimg = None
                 import traceback
                 traceback.print_exc()
-                raise art_error("Problem with fading code, switching to older fade technology")
-    def numpydraw(self,dest):
+                raise art_error(
+                    "Problem with fading code, switching to older fade technology")
+
+    def numpydraw(self, dest):
         if not self.mockimg_base:
             return
         px = pygame.surfarray.pixels_alpha(self.mockimg_base[self.x])
         px[:] = self.origa_base[self.x][:]*(self.fade/255.0)
         del px
         px = pygame.surfarray.pixels3d(self.mockimg_base[self.x])
-        if getattr(self,"origc_base",None):
+        if getattr(self, "origc_base", None):
             px[:] = self.origc_base[self.x]
             if self.invert:
                 px[:] = 255-px[:]
             self.linvert = self.invert
             if self.tint:
-                px*=self.tint
+                px *= self.tint
             self.lt = self.tint
         del px
         img = self.img
@@ -1432,46 +1579,52 @@ class fadesprite(sprite):
         if self.greyscale:
             self.lgs = self.greyscale
             ximg = pygame.Surface(self.img.get_size())
-            ximg.fill([255,0,255])
-            ximg.blit(self.img,[0,0])
+            ximg.fill([255, 0, 255])
+            ximg.blit(self.img, [0, 0])
             ximg = ximg.convert(8)
             pal = ximg.get_palette()
             gpal = []
             for col in pal:
-                if col == (255,0,255):
+                if col == (255, 0, 255):
                     gpal.append(col)
                     continue
                 avg = (col[0]+col[1]+col[2])//3
-                gpal.append([avg,avg,avg])
+                gpal.append([avg, avg, avg])
             ximg.set_palette(gpal)
             ximg = ximg.convert()
-            ximg.set_colorkey([255,0,255])
+            ximg.set_colorkey([255, 0, 255])
             yimg = pygame.Surface(self.img.get_size()).convert_alpha()
-            yimg.fill([0,0,0,0])
-            yimg.blit(ximg,[0,0])
+            yimg.fill([0, 0, 0, 0])
+            yimg.blit(ximg, [0, 0])
             self.img = yimg
-        sprite.draw(self,dest)
+        sprite.draw(self, dest)
         self.img = img
+
     def mockdraw(self, dest):
         self.mockimg.set_alpha(self.fade)
         img = self.img
         self.img = self.mockimg
-        sprite.draw(self,dest)
+        sprite.draw(self, dest)
         self.img = img
+
     def update(self):
         sprite.update(self)
 
+
 class graphic(fadesprite):
-    def __init__(self,name,*args,**kwargs):
-        fadesprite.__init__(self,*args,**kwargs)
+    def __init__(self, name, *args, **kwargs):
+        fadesprite.__init__(self, *args, **kwargs)
         self.load(name)
+
 
 class portrait(sprite):
     autoclear = True
+
     def get_self_image(self):
-        if hasattr(self,"img"):
+        if hasattr(self, "img"):
             return self.cur_sprite.img
     img = property(get_self_image)
+
     def makestr(self):
         """A wrightscript string to recreate the object"""
         xs = ""
@@ -1483,105 +1636,115 @@ class portrait(sprite):
         nt = ""
         if self.pos[0]: xs = "x="+str(self.pos[0])+" "
         if self.pos[1]: ys = "y="+str(self.pos[1])+" "
-        if type(self.z)==type(""):
-            if zlayers.index(self.__class__.__name__)!=zlayers.index(self.z.remove("_layer_")):
+        if type(self.z) == type(""):
+            if zlayers.index(self.__class__.__name__) != zlayers.index(self.z.remove("_layer_")):
                 zs = "z="+self.z
         else:
             if self.z != zlayers.index(self.__class__.__name__):
                 zs = "z=_layer_"+zlayers[self.z][0]
-        if not getattr(self,"id_name","$$").startswith("$$"): id = "name="+self.id_name+" "
-        if getattr(self,"nametag",self.charname).strip("\n")!=self.charname: nt = "nametag="+self.nametag+" "
+        if not getattr(self, "id_name", "$$").startswith(
+            "$$"): id = "name="+self.id_name+" "
+        if getattr(self, "nametag", self.charname).strip(
+            "\n") != self.charname: nt = "nametag="+self.nametag+" "
         hide = {True: " hide", False: ""}[bool(self.hide)]
-        stack = {True: " stack", False: ""}[bool(getattr(self,"was_stacked",False))]
-        return ("char "+self.charname+" "+xs+ys+zs+id+emo+nt+hide+stack+getattr(self,"extrastr","")).strip()
+        stack = {True: " stack", False: ""}[
+            bool(getattr(self, "was_stacked", False))]
+        return ("char "+self.charname+" "+xs+ys+zs+id+emo+nt+hide+stack+getattr(self, "extrastr", "")).strip()
     f = open("core/blipsounds.txt")
     bliplines = f.readlines()
     f.close()
-    male  = bliplines[1].strip().split(" ")
+    male = bliplines[1].strip().split(" ")
     female = bliplines[4].strip().split(" ")
-    def __init__(self,name=None,hide=False):
+
+    def __init__(self, name=None, hide=False):
         self.talk_sprite = fadesprite()
         self.blink_sprite = fadesprite()
         self.combined = fadesprite()
-        super(portrait,self).__init__()
-        self.init(name,hide)
+        super(portrait, self).__init__()
+        self.init(name, hide)
+
     def init_sounds(self):
-        self.clicksound = assets.variables.get("char_defsound","blipmale.ogg")
+        self.clicksound = assets.variables.get("char_defsound", "blipmale.ogg")
         if self.charname in self.female:
             self.clicksound = "blipfemale.ogg"
         if self.charname in self.male:
             self.clicksound = "blipmale.ogg"
-        if hasattr(self,"talk_sprite"):
-            if getattr(self.talk_sprite,"blipsound",None):
+        if hasattr(self, "talk_sprite"):
+            if getattr(self.talk_sprite, "blipsound", None):
                 self.clicksound = self.talk_sprite.blipsound
         if "char_"+self.charname+"_defsound" in assets.variables:
-            self.clicksound = assets.variables["char_"+self.charname+"_defsound"]
-    def init(self,name=None,hide=False,blinkname=None,init_basic=True):
+            self.clicksound = assets.variables["char_" +
+                self.charname+"_defsound"]
+
+    def init(self, name=None, hide=False, blinkname=None, init_basic=True):
         if not name: return self.init_sounds()
-        charname,rest = name.split("/",1)
+        charname, rest = name.split("/", 1)
         if init_basic:
             self.z = zlayers.index(self.__class__.__name__)
             self.pri = ulayers.index(self.__class__.__name__)
-            self.pos = [0,0]
-            self.rot = [0,0,0]
+            self.pos = [0, 0]
+            self.rot = [0, 0, 0]
             self.name = name
             self.id_name = charname
-            self.nametag = assets.variables.get("char_"+charname+"_name",charname.capitalize())+"\n"
-        #super(portrait,self).__init__()
-        
+            self.nametag = assets.variables.get(
+                "char_"+charname+"_name", charname.capitalize())+"\n"
+        # super(portrait,self).__init__()
+
         emo = rest
         mode = ""
         if emo.endswith("(combined)"):
-            emo,mode = emo.rsplit("(combined)",1)[0],"combined)"
+            emo, mode = emo.rsplit("(combined)", 1)[0], "combined)"
         elif emo.endswith("(blink)"):
-            emo,mode = emo.rsplit("(blink)",1)[0],"blink)"
+            emo, mode = emo.rsplit("(blink)", 1)[0], "blink)"
         elif emo.endswith("(talk)"):
-            emo,mode = emo.rsplit("(talk)",1)[0],"talk)"
+            emo, mode = emo.rsplit("(talk)", 1)[0], "talk)"
         blinkemo = emo
         blinkmode = mode
         if blinkname:
             blinkemo = blinkname
             blinkmode = "blink"
-        
+
         mode = mode[:-1]
         self.charname = charname
         self.emoname = emo
         self.blinkemo = blinkemo
         self.modename = mode
         self.supermode = "lipsync"
-        
+
         if not self.emoname: hide = "wait"
         self.hide = hide
         if self.hide: return self.init_sounds()
         self.talk_sprite = fadesprite()
         self.blink_sprite = fadesprite()
         self.combined = fadesprite()
+
         def shrink(t):
             if not t.startswith("/"):
                 t = "/"+t
             return t[t.rfind("/art/")+5:-4]
-            
-        def loadfrom(path):
-            if not path.endswith("/"):path+="/"
 
-            print ">",blinkemo
+        def loadfrom(path):
+            if not path.endswith("/"): path += "/"
+
+            print ">", blinkemo
             print path+blinkemo+"(blink)"
             blink = assets.registry.lookup(path+blinkemo+"(blink)")
-            if blink and not hasattr(self.blink_sprite,"img"):
-                self.blink_sprite.load(blink.rsplit("art/",1)[1][:-4])
-                
+            if blink and not hasattr(self.blink_sprite, "img"):
+                self.blink_sprite.load(blink.rsplit("art/", 1)[1][:-4])
+
             talk = assets.registry.lookup(path+emo+"(talk)")
-            if talk and not hasattr(self.talk_sprite,"img"):
-                self.talk_sprite.load(talk.rsplit("art/",1)[1][:-4])
-                
+            if talk and not hasattr(self.talk_sprite, "img"):
+                self.talk_sprite.load(talk.rsplit("art/", 1)[1][:-4])
+
             combined = assets.registry.lookup(path+emo+"(combined)")
-            if combined and not hasattr(self.combined,"img"):
-                self.combined.load(combined.rsplit("art/",1)[1][:-4])
+            if combined and not hasattr(self.combined, "img"):
+                self.combined.load(combined.rsplit("art/", 1)[1][:-4])
                 if not self.combined.split:
                     self.combined.split = len(self.combined.base)//2
                 self.talk_sprite.load(self.combined.base[:self.combined.split])
                 self.talk_sprite.name = self.combined.name+"_talk"
-                self.blink_sprite.load(self.combined.base[self.combined.split:])
+                self.blink_sprite.load(
+                    self.combined.base[self.combined.split:])
                 self.blink_sprite.name = self.combined.name+"_blink"
                 self.talk_sprite.loops = 1
                 self.blink_sprite.loops = 1
@@ -1593,89 +1756,109 @@ class portrait(sprite):
                 self.talk_sprite.offsety = self.combined.offsety
                 self.blink_sprite.offsetx = self.combined.offsetx
                 self.blink_sprite.offsety = self.combined.offsety
-            
+
             available = assets.registry.lookup(path+emo)
-            if available and not hasattr(self.blink_sprite,"img"):
-                self.blink_sprite.load(available.rsplit("art/",1)[1][:-4])
-                if self.blink_sprite.blinkmode=="blinknoset": self.blink_sprite.blinkmode = "stop"
-            
-            print blink,talk,combined,available
+            if available and not hasattr(self.blink_sprite, "img"):
+                self.blink_sprite.load(available.rsplit("art/", 1)[1][:-4])
+                if self.blink_sprite.blinkmode == "blinknoset": self.blink_sprite.blinkmode = "stop"
+
+            print blink, talk, combined, available
             if blink or talk or combined or available:
                 return True
-            raise art_error("Character folder %s not found"%charname)
+            raise art_error("Character folder %s not found" % charname)
 
         loadfrom("art/port/"+charname)
-        if hasattr(self.talk_sprite,"img") and not hasattr(self.blink_sprite,"img"):
+        if hasattr(self.talk_sprite, "img") and not hasattr(self.blink_sprite, "img"):
             self.blink_sprite.img = i = self.talk_sprite.img
             self.blink_sprite.base = [i]
             self.blink_sprite.blinkmode = "stop"
-            #self.blink_sprite.load(self.talk_sprite.base[:])
-            #self.blink_sprite.base = [self.blink_sprite.base[0]]
-        if hasattr(self.blink_sprite,"img") and not hasattr(self.talk_sprite,"img"):
+            # self.blink_sprite.load(self.talk_sprite.base[:])
+            # self.blink_sprite.base = [self.blink_sprite.base[0]]
+        if hasattr(self.blink_sprite, "img") and not hasattr(self.talk_sprite, "img"):
             self.talk_sprite.img = i = self.blink_sprite.img
             self.talk_sprite.base = [i]
-            #self.talk_sprite.load(self.blink_sprite.base[:])
-            #self.talk_sprite.base = [self.talk_sprite.base[0]]
+            # self.talk_sprite.load(self.blink_sprite.base[:])
+            # self.talk_sprite.base = [self.talk_sprite.base[0]]
         self.blink_sprite.loopmode = self.blink_sprite.blinkmode
-        self.blink_sprite.spd = int(assets.variables.get("_default_port_frame_delay",self.talk_sprite.spd))
-        self.talk_sprite.spd = int(assets.variables.get("_default_port_frame_delay",self.talk_sprite.spd))
-        if hasattr(self.talk_sprite,"img") and hasattr(self.blink_sprite,"img"):
-            if mode=="blink":self.set_blinking()
-            #if mode=="talk":self.set_talking()
+        self.blink_sprite.spd = int(assets.variables.get(
+            "_default_port_frame_delay", self.talk_sprite.spd))
+        self.talk_sprite.spd = int(assets.variables.get(
+            "_default_port_frame_delay", self.talk_sprite.spd))
+        if hasattr(self.talk_sprite, "img") and hasattr(self.blink_sprite, "img"):
+            if mode == "blink": self.set_blinking()
+            # if mode=="talk":self.set_talking()
         else:
-            raise art_error("Can't load character "+charname+"/"+emo+"("+mode+")")
+            raise art_error("Can't load character " +
+                            charname+"/"+emo+"("+mode+")")
         self.blinkspeed = self.blink_sprite.blinkspeed
-        #if init_basic:
+        # if init_basic:
         self.init_sounds()
-    def setprop(self,p,v):
+
+    def setprop(self, p, v):
         if p in "xy":
             self.pos["xy".index(p)] = float(v)
         if p in "z":
             self.z = int(v)
-        if p in ["supermode","mode"]:
-            setattr(self,p,v)
-    def set_dim(self,amt):
+        if p in ["supermode", "mode"]:
+            setattr(self, p, v)
+
+    def set_dim(self, amt):
         self.blink_sprite.dim = amt
         self.talk_sprite.dim = amt
+
     def get_dim(self):
         return self.blink_sprite.dim
-    dim = property(get_dim,set_dim)
-    def draw(self,dest):
-        if not self.hide and getattr(self.cur_sprite,"img",None):
+    dim = property(get_dim, set_dim)
+
+    def draw(self, dest):
+        if not self.hide and getattr(self.cur_sprite, "img", None):
             self.cur_sprite.tint = self.tint
             self.cur_sprite.greyscale = self.greyscale
             self.cur_sprite.invert = self.invert
             pos = self.pos[:]
-            pos[0] += (assets.sw-(self.cur_sprite.offsetx+self.cur_sprite.img.get_width()))//2
-            pos[1] += (assets.sh-(self.cur_sprite.img.get_height()-self.cur_sprite.offsety))
+            pos[0] += (assets.sw-(self.cur_sprite.offsetx +
+                       self.cur_sprite.img.get_width()))//2
+            pos[1] += (assets.sh-(self.cur_sprite.img.get_height() -
+                       self.cur_sprite.offsety))
             self.cur_sprite.pos = pos
             self.cur_sprite.rot = self.rot[:]
             self.cur_sprite.draw(dest)
+
     def delete(self):
         self.kill = 1
+
     def update(self):
-        if not self.hide and getattr(self.cur_sprite,"img",None):
+        if not self.hide and getattr(self.cur_sprite, "img", None):
             return self.cur_sprite.update()
-    def set_emotion(self,emo):
+
+    def set_emotion(self, emo):
         if self.hide and self.hide != "wait": return
         if not emo: return
         self.hide = False
-        self.init(self.charname+"/"+emo+"("+self.modename+")",init_basic=False)
-    def set_blink_emotion(self,emo):
+        self.init(self.charname+"/"+emo +
+                  "("+self.modename+")", init_basic=False)
+
+    def set_blink_emotion(self, emo):
         if self.hide and self.hide != "wait": return
         if not emo: return
         self.hide = False
-        self.init(self.charname+"/"+self.emoname+"("+self.modename+")",blinkname=emo,init_basic=False)
+        self.init(self.charname+"/"+self.emoname +
+                  "("+self.modename+")", blinkname=emo, init_basic=False)
+
     def set_talking(self):
         self.modename = "talk"
+
     def set_blinking(self):
         self.modename = "blink"
+
     def set_single(self):
         self.modename = "blink"
         self.supermode = "blink"
+
     def set_lipsync(self):
         self.supermode = "lipsync"
         self.modename = "blink"
+
     def get_current_sprite(self):
         if self.supermode == "lipsync":
             mode = self.modename
@@ -1690,220 +1873,253 @@ class portrait(sprite):
             return self.blink_sprite
         return self.blink_sprite
     cur_sprite = property(get_current_sprite)
-    def setfade(self,*args):
+
+    def setfade(self, *args):
         self.blink_sprite.setfade(*args)
         self.talk_sprite.setfade(*args)
     invert = 0
     tint = None
     greyscale = 0
-        
+
+
 class evidence(fadesprite):
     autoclear = True
-    def __init__(self,name="ev",**kwargs):
-        if not kwargs.has_key("x"): kwargs["x"]=5
-        if not kwargs.has_key("y"): kwargs["y"]=5
-        if not kwargs.has_key("pri"): kwargs["pri"]=50
-        if not kwargs.get("page",None):
-            pages = assets.variables.get("_ev_pages","evidence profiles").split(" ")
-            if len(pages)==1:
+
+    def __init__(self, name="ev", **kwargs):
+        if not kwargs.has_key("x"): kwargs["x"] = 5
+        if not kwargs.has_key("y"): kwargs["y"] = 5
+        if not kwargs.has_key("pri"): kwargs["pri"] = 50
+        if not kwargs.get("page", None):
+            pages = assets.variables.get(
+                "_ev_pages", "evidence profiles").split(" ")
+            if len(pages) == 1:
                 pages = pages + pages
             if name.endswith("$"):
                 kwargs["page"] = pages[1]
             else:
                 kwargs["page"] = pages[0]
         self.page = kwargs["page"]
-        super(evidence,self).__init__(**kwargs)
+        super(evidence, self).__init__(**kwargs)
         self.id = name
         self.reload()
+
     def reload(self):
-        artname = assets.variables.get(self.id+"_pic",self.id.replace("$",""))
+        artname = assets.variables.get(
+            self.id+"_pic", self.id.replace("$", ""))
         try:
             self.load("ev/"+artname)
         except:
             import traceback
             traceback.print_exc()
-            self.img = assets.Surface([16,16])
-            self.img.fill([255,255,255])
+            self.img = assets.Surface([16, 16])
+            self.img.fill([255, 255, 255])
         try:
-            self.small = pygame.transform.smoothscale(self.img,[36,36])
-            self.scaled = pygame.transform.smoothscale(self.img,[70,70])
+            self.small = pygame.transform.smoothscale(self.img, [36, 36])
+            self.scaled = pygame.transform.smoothscale(self.img, [70, 70])
         except:
-            self.small = pygame.transform.scale(self.img,[36,36])
-            self.scaled = pygame.transform.scale(self.img,[70,70])
+            self.small = pygame.transform.scale(self.img, [36, 36])
+            self.scaled = pygame.transform.scale(self.img, [70, 70])
         self.setfade()
-        self.name = assets.variables.get(self.id+"_name",self.id.replace("$",""))
-        self.desc = assets.variables.get(self.id+"_desc",self.id.replace("$",""))
-        
+        self.name = assets.variables.get(
+            self.id+"_name", self.id.replace("$", ""))
+        self.desc = assets.variables.get(
+            self.id+"_desc", self.id.replace("$", ""))
+
+
 class penalty(fadesprite):
-    def __init__(self,end=100,var="penalty",flash_amount=None):
+    def __init__(self, end=100, var="penalty", flash_amount=None):
         self.id_name = "penalty"
         self.var = var
-        super(penalty,self).__init__()
-        self.gfx = assets.open_art("general/healthbar",key=[255,0,255])[0]
-        self.left = self.gfx.subsurface([[0,0],[2,14]])
-        self.right = self.gfx.subsurface([[82,0],[2,14]])
-        self.good = self.gfx.subsurface([[2,0],[1,14]])
-        self.bad = self.gfx.subsurface([[66,0],[1,14]])
-        self.pos = [0,0]
-        if end<0: end = 0
+        super(penalty, self).__init__()
+        self.gfx = assets.open_art("general/healthbar", key=[255, 0, 255])[0]
+        self.left = self.gfx.subsurface([[0, 0], [2, 14]])
+        self.right = self.gfx.subsurface([[82, 0], [2, 14]])
+        self.good = self.gfx.subsurface([[2, 0], [1, 14]])
+        self.bad = self.gfx.subsurface([[66, 0], [1, 14]])
+        self.pos = [0, 0]
+        if end < 0: end = 0
         self.end = end
         self.delay = 50
         self.flash_amount = flash_amount
-        self.flash_color = [255,242,129,150]
+        self.flash_color = [255, 242, 129, 150]
         self.flash_dir = 1
         self.change = 0
+
     def gv(self):
-        v = assets.variables.get(self.var,100)
+        v = assets.variables.get(self.var, 100)
         try:
             v = int(v)
         except:
             v = 100
         return v
-    def sv(self,val):
+
+    def sv(self, val):
         assets.variables[self.var] = str(val)
-    def draw(self,dest):
+
+    def draw(self, dest):
         v = self.gv()
         x = assets.sw-110
-        dest.blit(self.left,[x,2]); x+=2
-        if v<0: v=0
+        dest.blit(self.left, [x, 2]); x += 2
+        if v < 0: v = 0
         for i in range(v):
-            dest.blit(self.good,[x,2]); x+=1
+            dest.blit(self.good, [x, 2]); x += 1
         for i in range(100-v):
-            dest.blit(self.bad,[x,2]); x += 1
-        dest.blit(self.right,[x,2])
+            dest.blit(self.bad, [x, 2]); x += 1
+        dest.blit(self.right, [x, 2])
         if self.flash_amount:
             fx = assets.sw-108+v-self.flash_amount
             fw = self.flash_amount
             fy = 4
             fh = 10
-            surf = pygame.Surface([fw,fh]).convert_alpha()
+            surf = pygame.Surface([fw, fh]).convert_alpha()
             surf.fill(self.flash_color)
-            dest.blit(surf,[fx,fy])
-            self.flash_color[3]+=self.flash_dir*8
-            if self.flash_color[3]>200 or self.flash_color[3]<100:
+            dest.blit(surf, [fx, fy])
+            self.flash_color[3] += self.flash_dir*8
+            if self.flash_color[3] > 200 or self.flash_color[3] < 100:
                 self.flash_dir = -self.flash_dir
         self.sv(v)
+
     def update(self):
         self.change += assets.dt
-        while self.change>1:
+        while self.change > 1:
             self.change -= 1
             v = self.gv()
-            if self.end<v:
+            if self.end < v:
                 v -= 1
-                if v<0: v = 0
-            elif self.end>v:
+                if v < 0: v = 0
+            elif self.end > v:
                 v += 1
-                if v>100: v = 100
+                if v > 100: v = 100
             elif self.delay:
                 self.delay -= 1
-                if self.delay==0:
+                if self.delay == 0:
                     self.die()
                     self.delete()
             self.sv(v)
         if self.delay:
             return True
+
     def die(self):
-        if self.gv()<=0:
+        if self.gv() <= 0:
             print "bad penalty about to die"
-            ps = assets.variables.get("_penalty_script","")
+            ps = assets.variables.get("_penalty_script", "")
             if ps:
                 args = []
                 if " " in ps:
-                    ps,label = ps.split(" ",1)
+                    ps, label = ps.split(" ", 1)
                     args.append("label="+label)
-                assets.cur_script._script("script",ps,*args)
-        
+                assets.cur_script._script("script", ps, *args)
+
+
 class bg(fadesprite):
     autoclear = True
-    def __init__(self,name="",**kwargs):
-        super(bg,self).__init__(**kwargs)
+
+    def __init__(self, name="", **kwargs):
+        super(bg, self).__init__(**kwargs)
         if name:
             self.load("bg/"+name)
-        
+
+
 class fg(fadesprite):
     autoclear = True
-    def __init__(self,name="",**kwargs):
-        super(fg,self).__init__(**kwargs)
+
+    def __init__(self, name="", **kwargs):
+        super(fg, self).__init__(**kwargs)
         if name:
             self.load("fg/"+name)
-            self.pos = [(assets.sw-self.img.get_width())/2+self.pos[0],(assets.sh-self.img.get_height())/2+self.pos[1]]
-        self.wait = kwargs.get("wait",1)
-        self.spd = int(assets.variables.get("_default_fg_frame_delay",self.spd))
+            self.pos = [(assets.sw-self.img.get_width())/2+self.pos[0],
+                         (assets.sh-self.img.get_height())/2+self.pos[1]]
+        self.wait = kwargs.get("wait", 1)
+        self.spd = int(assets.variables.get(
+            "_default_fg_frame_delay", self.spd))
+
     def update(self):
-        super(fg,self).update()
-        if self.next>=0 and self.wait:
+        super(fg, self).update()
+        if self.next >= 0 and self.wait:
             return True
 
 
-#Keep this for saved games
+# Keep this for saved games
 class testimony_blink(fg):
     id_name = "_tb_blinker_"
-    def draw(self,dest):
+
+    def draw(self, dest):
         self.pos[0] = 0
         self.pos[1] = 22
         self.fade = 255
-        if not hasattr(self,"time"):
+        if not hasattr(self, "time"):
             self.time = 80
         self.time -= 1
         if self.time == 0:
             self.time = 80
-        if self.time>20 and vtrue(assets.variables.get("_testimony_blinker", "true")):
-            w,h = self.img.get_size()
-            dest.blit(pygame.transform.scale(self.img,[int(w//1.5),int(h//1.5)]),self.pos)
+        if self.time > 20 and vtrue(assets.variables.get("_testimony_blinker", "true")):
+            w, h = self.img.get_size()
+            dest.blit(pygame.transform.scale(
+                self.img, [int(w//1.5), int(h//1.5)]), self.pos)
+
 
 class textbox(gui.widget):
     pri = 30
-    def click_down_over(self,pos):
-        if not hasattr(self,"rpos1"): return
-        if getattr(self,"hidden",0): return
+
+    def click_down_over(self, pos):
+        if not hasattr(self, "rpos1"): return
+        if getattr(self, "hidden", 0): return
         if self.statement:
-            if pos[1]>=self.rpos[1] and pos[1]<=self.rpos1[1]+self.height1:
-                if pos[0]>=self.rpos1[0] and pos[0]<=self.rpos1[0]+self.width/2:
+            if pos[1] >= self.rpos[1] and pos[1] <= self.rpos1[1]+self.height1:
+                if pos[0] >= self.rpos1[0] and pos[0] <= self.rpos1[0]+self.width/2:
                     self.k_left()
-                if pos[0]>=self.rpos1[0]+self.width/2 and pos[0]<=self.rpos1[0]+self.width:
+                if pos[0] >= self.rpos1[0]+self.width/2 and pos[0] <= self.rpos1[0]+self.width:
                     self.k_right()
-        if pos[0]>=self.rpos1[0] and pos[0]<=self.rpos1[0]+self.width1 and pos[1]>=self.rpos1[1] and pos[1]<=self.rpos1[1]+self.height1:
+        if pos[0] >= self.rpos1[0] and pos[0] <= self.rpos1[0]+self.width1 and pos[1] >= self.rpos1[1] and pos[1] <= self.rpos1[1]+self.height1:
             self.enter_down()
-    def set_text(self,text):
-        #print "SETTING TEXT:",repr(text)
+
+    def set_text(self, text):
+        # print "SETTING TEXT:",repr(text)
         text = textutil.markup_text(text)
-        #print "marked up text:",repr(text)
-        text.m_replace(lambda c:hasattr(c,"variable"),lambda c:assets.variables[c.variable])
+        # print "marked up text:",repr(text)
+        text.m_replace(lambda c: hasattr(c, "variable"),
+                       lambda c: assets.variables[c.variable])
         lines = text.fulltext().split(u"\n")
-        wrap = vtrue(assets.variables.get("_textbox_wrap","true"))
-        if vtrue(assets.variables.get("_textbox_wrap_avoid_controlled","true")):
-            if len(lines)>1:
+        wrap = vtrue(assets.variables.get("_textbox_wrap", "true"))
+        if vtrue(assets.variables.get("_textbox_wrap_avoid_controlled", "true")):
+            if len(lines) > 1:
                 wrap = False
-        lines = textutil.wrap_text(lines,assets.get_image_font("tb"),assets.sw-6,wrap)
+        lines = textutil.wrap_text(
+            lines, assets.get_image_font("tb"), assets.sw-6, wrap)
         self.pages = [lines[i:i+3] for i in xrange(0, len(lines), 3)]
         self._text = u"\n"
         self._markup = textutil.markup_text("")
         for page in self.pages:
             for line in page:
                 self._text += line.fulltext()
-                self._text+="\n"
+                self._text += "\n"
                 self._markup._text.extend(line.chars())
                 self._markup._text.append("\n")
-    text = property(lambda self: self._text,set_text)
-    def __init__(self,text="",color=[255,255,255],delay=2,speed=1,rightp=True,leftp=False,nametag="\n"):
+    text = property(lambda self: self._text, set_text)
+
+    def __init__(self, text="", color=[255, 255, 255], delay=2, speed=1, rightp=True, leftp=False, nametag="\n"):
         self.nametag = nametag
-        ImgFont.lastcolor = [255,255,255]
-        gui.widget.__init__(self,[0,0],[assets.sw,assets.sh])
+        ImgFont.lastcolor = [255, 255, 255]
+        gui.widget.__init__(self, [0, 0], [assets.sw, assets.sh])
         self.z = zlayers.index(self.__class__.__name__)
         nametag = self.nametag
         if assets.portrait:
-            nametag = getattr(assets.portrait,"nametag",nametag) or nametag
+            nametag = getattr(assets.portrait, "nametag", nametag) or nametag
         self.nt_full = None
         self.nt_left = None
         self.nt_text_image = None
-        self.base = assets.open_art(assets.variables.get("_textbox_bg","general/textbox_2"))[0].convert_alpha()
-        nt_full_image = assets.variables.get("_nt_image","")
+        self.base = assets.open_art(assets.variables.get(
+            "_textbox_bg", "general/textbox_2"))[0].convert_alpha()
+        nt_full_image = assets.variables.get("_nt_image", "")
         if nt_full_image:
             self.nt_full = assets.open_art(nt_full_image)[0].convert_alpha()
         elif nametag.strip():
-            self.nt_left = assets.open_art("general/nt_left")[0].convert_alpha()
-            self.nt_middle = assets.open_art("general/nt_middle")[0].convert_alpha()
-            self.nt_right = assets.open_art("general/nt_right")[0].convert_alpha()
+              self.nt_left = assets.open_art(assets.variables.get(
+                "_nt_image_left", "general/nt_left"))[0].convert_alpha()
+            self.nt_middle = assets.open_art(assets.variables.get(
+                "_nt_image_middle", "general/nt_middle"))[0].convert_alpha()
+             self.nt_right = assets.open_art(assets.variables.get(
+                "_nt_image_right", "general/nt_right"))[0].convert_alpha()
         self.nametag = nametag
         self.img = self.base.copy()
         self.go = 0
