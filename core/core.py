@@ -2114,11 +2114,11 @@ class textbox(gui.widget):
         if nt_full_image:
             self.nt_full = assets.open_art(nt_full_image)[0].convert_alpha()
         elif nametag.strip():
-              self.nt_left = assets.open_art(assets.variables.get(
+            self.nt_left = assets.open_art(assets.variables.get(
                 "_nt_image_left", "general/nt_left"))[0].convert_alpha()
             self.nt_middle = assets.open_art(assets.variables.get(
                 "_nt_image_middle", "general/nt_middle"))[0].convert_alpha()
-             self.nt_right = assets.open_art(assets.variables.get(
+            self.nt_right = assets.open_art(assets.variables.get(
                 "_nt_image_right", "general/nt_right"))[0].convert_alpha()
         self.nametag = nametag
         self.img = self.base.copy()
