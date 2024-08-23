@@ -2403,16 +2403,16 @@ class textbox(gui.widget):
                 next_char = 4
             if self._lc in ["-"] and (char.isalpha() or char.isdigit()):
                 next_char = 4
+            if assets.portrait:
+                punctuation = [x for x in assets.variables.get("_punctuation",u".,?!")]
+                if not self.in_paren and not char in punctuation+"\n)":
+                    assets.portrait.set_talking()
+                if self.in_paren:
+                    assets.portrait.set_blinking()
             if char in ["("]:
                 self.in_paren = 1
             if char in [")"]:
                 self.in_paren = 0
-            if assets.portrait:
-                punctuation = [x for x in assets.variables.get("_punctuation",u".,?!")]
-                if not self.in_paren and not char in punctuation:
-                    assets.portrait.set_talking()
-                if self.in_paren:
-                    assets.portrait.set_blinking()
             if str(char).strip():
                 assets.play_sound(self.clicksound,volume=random.uniform(0.65,1.0))
             next_char = int(next_char*self.delay)
